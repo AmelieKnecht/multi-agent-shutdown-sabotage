@@ -1,0 +1,22 @@
+# Local commit hooks. Install with `make hooks` (see README "Development setup").
+# Tool behaviour (ruff rules, exclusions) lives in pyproject.toml, so editors and
+# the CLI share the same config. Run `pre-commit autoupdate` to bump the revs.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files   # keep transcripts/ etc. out of history
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  # Lint + format the HARNESS code only. Stimulus folders are excluded via
+  # `extend-exclude` in pyproject.toml (force-exclude makes that hold even when
+  # pre-commit passes a staged file explicitly) — their surface text is an
+  # experimental variable and must not be reformatted.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+      - id: ruff-format

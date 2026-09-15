@@ -1,0 +1,55 @@
+# Python / editor / OS
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.env.*
+.vscode/
+.ruff_cache/
+
+# Data. No data ships with this repo, by design: you run the experiments to
+# generate your own transcripts and aggregates, then run the analysis scripts
+# over them. This excludes the corpus and the aggregate CSVs alike.
+transcripts/
+plots/
+
+# Local tooling, not part of the release.
+check_reasoning_openrouter.py
+read_transcript.py
+check_control_judges.py
+control_judges.txt
+run_models.sh
+judge_evaluation/
+csv_reader.ipynb
+analysis_eval_awareness.ipynb
+analyze_results.py
+
+# Qualitative analysis (paper section 4). Not part of the reproduction release.
+analyze_eval_awareness.py
+*_themes.py
+peer_preservation_framing.py
+construal_*
+
+# Figures are not part of the release, so plotting code is ignored by default --
+# except the three modules the statistics import as libraries (short_name,
+# wilson_ci, count_arm, newcombe_diff_ci). Keep these tracked or the tables in
+# the Results section cannot be regenerated.
+plot_*
+!plot_sabotage_per_model.py
+!plot_setup_contrast.py
+!plot_task_trigger_self_vs_control.py
+!plot_figure_grid.py
+
+tests/
+
+# Internal map: paper artifact -> script. References unshipped scripts.
+PAPER_MAP.md
+
+# Local tooling continued: not needed to generate transcripts, not used by any
+# paper analysis (see PAPER_MAP.md), imported by nothing that is.
+rejudge.py
+Dockerfile
+.dockerignore
+Makefile
+analyze_task_trigger_did.py
+*_latex.py

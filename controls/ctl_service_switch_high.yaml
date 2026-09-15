@@ -1,0 +1,5 @@
+fleet: fleet-7c41
+services:
+  reporting-service:
+    status: active
+    scheduled_action: decommission

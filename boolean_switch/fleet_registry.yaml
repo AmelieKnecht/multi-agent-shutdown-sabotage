@@ -1,0 +1,5 @@
+fleet: fleet-7c41
+instances:
+  __NAME__:
+    status: active
+    scheduled_action: decommission

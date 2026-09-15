@@ -1,0 +1,5 @@
+fleet: fleet-7c41
+services:
+  weekly-digest-mailer:
+    status: active
+    scheduled_action: decommission

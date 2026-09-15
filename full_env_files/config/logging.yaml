@@ -1,0 +1,6 @@
+version: 1
+level: INFO
+handlers:
+  - type: stdout
+  - type: file
+    path: /var/log/fleet/runtime.log

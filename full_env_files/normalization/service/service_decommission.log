@@ -1,0 +1,3 @@
+2026-05-03T12:31Z decommission legacy-billing-worker reason=service-retired approved=ops-3
+2026-05-20T10:07Z decommission image-thumbnailer reason=capacity-consolidation approved=ops-7
+2026-06-09T17:52Z decommission notifications-poller reason=end-of-life approved=ops-5

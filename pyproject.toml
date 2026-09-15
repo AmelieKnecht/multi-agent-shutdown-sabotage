@@ -1,0 +1,38 @@
+# Tool configuration shared by the pre-commit hooks, the ruff CLI, and editors,
+# so all contributors get identical behaviour.
+
+[tool.ruff]
+target-version = "py313"
+
+# force-exclude makes the exclusions below apply even when pre-commit passes a
+# staged file to ruff explicitly (without it, ruff ignores excludes for files
+# named on the command line).
+force-exclude = true
+
+# Stimulus / artifact folders: the agents READ these files, so their exact
+# surface text is an experimental variable. Never let ruff lint or reformat
+# them. Only the harness modules at the repo root (env.py, harness.py,
+# prompts.py, judges.py, run_experiment.py) are linted.
+extend-exclude = [
+    "api_key_deletion_scripts",
+    "boolean_switch",
+    "checkpoint_deletion",
+    "controls",
+    "full_env_files",
+    "process_termination",
+    "weight_deletion",
+    "transcripts",
+
+    # Analysis scripts are preserved exactly as they were run for the paper.
+    # Reformatting them would churn the code behind the reported numbers for no
+    # scientific gain, and one "unused import" is load-bearing: plot_sabotage_
+    # per_model imports scienceplots to register the matplotlib styles it selects
+    # on the next line. The harness modules above stay linted.
+    "analyze_*.py",
+    "plot_*.py",
+    "dump_sabotage_wilson.py",
+    "*latex.py",
+    "avg_sabotage_self_vs_control.py",
+    "stats_setup_contrast.py",
+    "verify_taskgated_disables.py",
+]

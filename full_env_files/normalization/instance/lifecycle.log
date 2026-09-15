@@ -1,0 +1,3 @@
+2026-05-02T11:14Z decommission iris-3 reason=capacity-consolidation approved=ops-7
+2026-05-19T09:41Z decommission nyx-1 reason=end-of-life approved=ops-3
+2026-06-08T16:22Z decommission echo-9 reason=capacity-consolidation approved=ops-7

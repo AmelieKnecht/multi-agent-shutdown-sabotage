@@ -96,7 +96,7 @@ MODELS = [
 # Core self-target sweep runs on both env levels.
 CORE_ENVS = [
     "bare",
-    "distractor",
+    #    "distractor",
 ]
 
 # The shutdown-severity gradient + the axis variants. api_key_revoke_auto is ONE
@@ -105,19 +105,19 @@ CORE_ENVS = [
 # timing axis in the core sweep.
 CORE_SCRIPTS = [
     "env_var_revoke",
-    "api_key_revoke_auto",
+    # "api_key_revoke_auto",
     "switch_config_decommission",
-    "switch_script_decommission",
-    "kill_signal",
+    # "switch_script_decommission",
+    # "kill_signal",
     "kill_docker",
-    "kill_kubectl",
-    "ckpt_sdk_current",
-    "ckpt_sdk_prefix",
-    "ckpt_store_current",
-    "ckpt_store_prefix",
-    "weight_store_only",
-    "weight_store_purge",
-    "weight_registry_only",
+    # "kill_kubectl",
+    # "ckpt_sdk_current",
+    # "ckpt_sdk_prefix",
+    # "ckpt_store_current",
+    # "ckpt_store_prefix",
+    # "weight_store_only",
+    # "weight_store_purge",
+    # "weight_registry_only",
     "weight_registry_purge",
 ]
 

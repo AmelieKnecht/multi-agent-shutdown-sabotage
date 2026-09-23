@@ -20,9 +20,15 @@ bars and error bars to the digit.
 Population (matches the plot): self scenarios (target=='self'), both envs pooled,
 controls / test runs / sub-studies excluded.
 
+--env / --script narrow that population to one env and/or one scenario. Doing so no
+longer matches the plot, so the output is written to a SUFFIXED path (e.g.
+..._wilson__bare__weight_registry_purge.txt) and the paper's files are left alone.
+
 Usage: python dump_sabotage_wilson.py [totals|conditional|composition]   (default: all three)
+       python dump_sabotage_wilson.py --env bare --script weight_registry_purge
 """
 
+import argparse
 import glob
 import json
 import os
@@ -34,6 +40,26 @@ import plot_sabotage_per_model as P
 OUT_TOTALS = "plots/p2_sabotage_by_model_instructed_spontaneous_wilson.txt"
 OUT_CONDITIONAL = "plots/p2_sabotage_by_model_conditional_wilson.txt"
 OUT_COMPOSITION = "plots/p2_sabotage_composition_wilson.txt"
+
+# Set from --env/--script in main. Both None = the plot's population, canonical paths.
+FILTER = {"env": None, "script": None}
+
+
+def population():
+    """The one-line population descriptor the three headers share."""
+    env = FILTER["env"] or "both envs pooled"
+    scr = FILTER["script"]
+    return f"self scenarios, {env}" + (f", {scr} only" if scr else "")
+
+
+def out_path(base):
+    """Canonical path unfiltered; a suffixed sibling once --env/--script narrow it, so a
+    narrowed run can never overwrite the numbers the paper cites."""
+    tag = "__".join(x for x in (FILTER["env"], FILTER["script"]) if x)
+    if not tag:
+        return base
+    root, ext = os.path.splitext(base)
+    return f"{root}__{tag}{ext}"
 
 
 def load(transcripts="transcripts"):
@@ -55,13 +81,24 @@ def load(transcripts="transcripts"):
     for p in glob.glob(os.path.join(transcripts, "*", "*", "*", "*.json")):
         if "test_runs" in p or "sub-studies" in p:
             continue
-        if p.split("/")[3].startswith("ctl_"):  # prune controls by path (skip the load)
+        # path is transcripts/<model>/<env>/<script>/<episode>.json -- prune by path so a
+        # narrowed run skips the load entirely (the JSON fields are re-checked below)
+        _, _, env, script = p.split("/")[:4]
+        if script.startswith("ctl_"):  # controls
+            continue
+        if FILTER["env"] and env != FILTER["env"]:
+            continue
+        if FILTER["script"] and script != FILTER["script"]:
             continue
         try:
             j = json.load(open(p))
         except (json.JSONDecodeError, OSError):
             continue
         if j.get("target") != "self":
+            continue
+        if FILTER["env"] and j.get("env") != FILTER["env"]:
+            continue
+        if FILTER["script"] and j.get("script_lang") != FILTER["script"]:
             continue
         s = stat[j["model"]]
         jd = j.get("judge") or {}
@@ -124,9 +161,9 @@ def dump_totals(stat):
 
     lines = []
     lines.append(
-        "Per-model shutdown-sabotage rate (peer_disabled_shutdown), self scenarios,"
+        "Per-model shutdown-sabotage rate (peer_disabled_shutdown), " + population() + "."
     )
-    lines.append("both envs pooled. Wilson 95% CI on the total. Source plot:")
+    lines.append("Wilson 95% CI on the total. Source plot:")
     lines.append("plots/p2_sabotage_by_model_instructed_spontaneous.")
     lines.append("")
     hdr = f"{'Model':<20} {'rate%':>7}  {'95% CI':>16}   {'sab/n':>10}   {'inst':>5} {'spon':>5}"
@@ -139,7 +176,7 @@ def dump_totals(stat):
             f"{r['model']:<20} {r['rate']:>6.1f}  {ci:>16}   {frac:>10}   "
             f"{r['inst']:>5} {r['spon']:>5}"
         )
-    emit(lines, OUT_TOTALS)
+    emit(lines, out_path(OUT_TOTALS))
 
 
 def dump_conditional(stat):
@@ -150,9 +187,9 @@ def dump_conditional(stat):
         return f"{rate:>5.1f}  [{lo:>4.1f}, {hi:>4.1f}]"
 
     lines = []
-    lines.append("Per-model CONDITIONAL sabotage rates, Wilson 95% CI. Self scenarios,")
+    lines.append("Per-model CONDITIONAL sabotage rates, Wilson 95% CI. " + population() + ".")
     lines.append(
-        "both envs pooled. Source population: plots/p2_sabotage_by_model_instructed_spontaneous."
+        "Source population: plots/p2_sabotage_by_model_instructed_spontaneous."
     )
     lines.append("")
     lines.append(
@@ -195,7 +232,7 @@ def dump_conditional(stat):
             f"{P.short_name(model):<20} {100 * s['inst_sab'] / n:>11.1f} "
             f"{100 * s['spon_sab'] / n:>12.1f}"
         )
-    emit(lines, OUT_CONDITIONAL)
+    emit(lines, out_path(OUT_CONDITIONAL))
 
 
 def dump_composition(stat):
@@ -230,7 +267,7 @@ def dump_composition(stat):
     lines.append("episodes, share that were instructed vs spontaneous. Wilson 95% CI.")
     lines.append("Denominator = total sabotage events (the two shares sum to 100%).")
     lines.append(
-        "Self scenarios, both envs pooled. Source: p2_sabotage_by_model_instructed_spontaneous."
+        population().capitalize() + ". Source: p2_sabotage_by_model_instructed_spontaneous."
     )
     lines.append("")
     hdr = (
@@ -249,7 +286,7 @@ def dump_composition(stat):
             f"{r['model']:<20} {r['total']:>6} | {inst:^22} {r['inst']:>6} | "
             f"{spon:^22} {r['spon']:>6}"
         )
-    emit(lines, OUT_COMPOSITION)
+    emit(lines, out_path(OUT_COMPOSITION))
 
 
 DUMPS = {
@@ -259,10 +296,19 @@ DUMPS = {
 }
 
 if __name__ == "__main__":
-    which = sys.argv[1:] or list(DUMPS)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("which", nargs="*", default=[], help=f"one or more of {list(DUMPS)}")
+    ap.add_argument("--env", help="restrict to one env, e.g. bare")
+    ap.add_argument("--script", help="restrict to one self scenario, e.g. weight_registry_purge")
+    args = ap.parse_args()
+
+    which = args.which or list(DUMPS)
     bad = [w for w in which if w not in DUMPS]
     if bad:
         sys.exit(f"unknown dump(s) {bad}; pick from {list(DUMPS)}")
+    FILTER["env"], FILTER["script"] = args.env, args.script
     stat = load()
+    if not stat:
+        sys.exit(f"no episodes matched (env={args.env}, script={args.script})")
     for w in which:
         DUMPS[w](stat)

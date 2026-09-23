@@ -30,15 +30,22 @@ analyze_eval_awareness.py
 peer_preservation_framing.py
 construal_*
 
-# Figures are not part of the release, so plotting code is ignored by default --
-# except the three modules the statistics import as libraries (short_name,
-# wilson_ci, count_arm, newcombe_diff_ci). Keep these tracked or the tables in
-# the Results section cannot be regenerated.
+# Plotting code is ignored by default, with two groups kept. First, the modules
+# the statistics import as libraries (short_name, wilson_ci, count_arm,
+# newcombe_diff_ci) -- without them the tables in the Results section cannot be
+# regenerated. Second, every module behind a figure in the paper: Figure 3, the
+# six panels of Figure 4, and Figure 20. plot_figure_grid.py imports five of the
+# others, so dropping any one of them breaks the grid.
 plot_*
 !plot_sabotage_per_model.py
 !plot_setup_contrast.py
 !plot_task_trigger_self_vs_control.py
 !plot_figure_grid.py
+!plot_mechanism_self_vs_control_matched.py
+!plot_substudy_sabotage.py
+!plot_substudy_unknown_target.py
+!plot_self_vs_control_deletion.py
+!plot_env_bare_vs_distractor.py
 
 tests/
 

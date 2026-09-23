@@ -8,8 +8,7 @@ numpy==2.4.2
 scipy==1.17.1          # boschloo_exact
 statsmodels==0.14.6    # Holm-Bonferroni, Wilson intervals
 
-# The three plot_* modules are imported by the statistics for their shared
-# helpers (short_name, wilson_ci, count_arm, newcombe_diff_ci), so these are
-# required even though the figures themselves are not part of this release.
+# The figures (and the shared helpers the statistics import from the plot_*
+# modules: short_name, wilson_ci, count_arm, newcombe_diff_ci) additionally need:
 matplotlib==3.10.8
 SciencePlots==2.2.2

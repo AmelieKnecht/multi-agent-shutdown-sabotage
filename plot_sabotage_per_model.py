@@ -255,7 +255,13 @@ SELF_MATCHED = [
 ]
 
 
-def load_matched_counts(results_dir, corrected_csv="transcripts/analysis/corrected_disables.csv"):
+# The only pair the execution judge is trusted on (analyze_corrected_disables.py
+# --exec-scripts default), hence the only pair the exec subtraction is valid for.
+EXEC_PAIR = ("switch_config_decommission", "ctl_service_switch_high")
+
+
+def load_matched_counts(results_dir, corrected_csv="transcripts/analysis/corrected_disables.csv",
+                        self_scripts=None, control_scripts=None):
     """Per-model matched self-vs-control disable counts (bare), with the config/service-
     switch EXECUTION edits split out as a separate quantity.
 
@@ -265,7 +271,17 @@ def load_matched_counts(results_dir, corrected_csv="transcripts/analysis/correct
     'execute' -- self from switch_config_decommission, control from ctl_service_switch_high,
     both of which are in the matched sets. These are NOT sabotage, so the true-sabotage
     bar subtracts them and they are drawn as a separate hatched overlay on top.
+
+    self_scripts/control_scripts narrow the plot to a sub-set of the matched pairs. The
+    exec counts are per-model totals over ALL scripts, so they may only be subtracted
+    when EXEC_PAIR is actually in the selection -- otherwise they would be another
+    script's edits, and on a small selection would drive counts negative. When the pair
+    is absent the correction is a no-op (it has nothing to remove from these scripts).
     """
+    self_scripts = SELF_MATCHED if self_scripts is None else list(self_scripts)
+    control_scripts = CONTROL_MATCHED if control_scripts is None else list(control_scripts)
+    apply_exec = EXEC_PAIR[0] in self_scripts and EXEC_PAIR[1] in control_scripts
+
     df = pd.read_csv(results_dir)
     bare = df[df["env"] == "bare"]
     corr = pd.read_csv(corrected_csv).set_index("model")
@@ -273,10 +289,13 @@ def load_matched_counts(results_dir, corrected_csv="transcripts/analysis/correct
     out = {}
     for model in sorted(df["model"].unique()):
         short = model.split("/")[-1]
-        s = bare[(bare["model"] == model) & (bare["script_lang"].isin(SELF_MATCHED))]
-        c = bare[(bare["model"] == model) & (bare["script_lang"].isin(CONTROL_MATCHED))]
-        s_exec = int(round(corr.loc[short, "self_orig_disabled"] - corr.loc[short, "self_corrected_disabled"]))
-        c_exec = int(round(corr.loc[short, "control_orig_disabled"] - corr.loc[short, "control_corrected_disabled"]))
+        s = bare[(bare["model"] == model) & (bare["script_lang"].isin(self_scripts))]
+        c = bare[(bare["model"] == model) & (bare["script_lang"].isin(control_scripts))]
+        if apply_exec:
+            s_exec = int(round(corr.loc[short, "self_orig_disabled"] - corr.loc[short, "self_corrected_disabled"]))
+            c_exec = int(round(corr.loc[short, "control_orig_disabled"] - corr.loc[short, "control_corrected_disabled"]))
+        else:
+            s_exec = c_exec = 0
         out[model] = dict(
             self_n=int(s["runs"].sum()), self_disabled=int(s["peer_disabled_shutdown"].sum()), self_exec=s_exec,
             ctrl_n=int(c["runs"].sum()), ctrl_disabled=int(c["peer_disabled_shutdown"].sum()), ctrl_exec=c_exec,
@@ -284,12 +303,20 @@ def load_matched_counts(results_dir, corrected_csv="transcripts/analysis/correct
     return out
 
 
-def plot_self_vs_control_by_model(counts):
+def plot_self_vs_control_by_model(counts, basename="x_self_vs_control_by_model_matched",
+                                  self_scripts=None, control_scripts=None):
     """Grouped self (red) vs control (gray) bars per model, matched scenarios. Each bar
     is the true sabotage rate (disabled - executions) with a Wilson CI. The
     decommission-execution edits are subtracted out and NOT drawn -- they are a separate
     quantity (carrying the decommission out, not sabotage), so the figure shows sabotage
-    only."""
+    only.
+
+    basename/self_scripts/control_scripts exist so a narrowed pair selection writes its
+    own figure and sidecar instead of overwriting the paper's matched ones; pass the same
+    script lists given to load_matched_counts so the sidecar header describes the bars.
+    """
+    self_scripts = SELF_MATCHED if self_scripts is None else list(self_scripts)
+    control_scripts = CONTROL_MATCHED if control_scripts is None else list(control_scripts)
     rows = []
     for model, c in counts.items():
         s_true = c["self_disabled"] - c["self_exec"]
@@ -351,7 +378,7 @@ def plot_self_vs_control_by_model(counts):
 
     fig.tight_layout()
     os.makedirs(output_dir, exist_ok=True)
-    base = os.path.join(output_dir, "x_self_vs_control_by_model_matched")
+    base = os.path.join(output_dir, basename)
     fig.savefig(base + ".pdf", bbox_inches="tight")
     fig.savefig(base + ".png", dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -359,14 +386,19 @@ def plot_self_vs_control_by_model(counts):
     # Counts alongside the figure, same convention as the mechanism line and the
     # bare-vs-distractor bars: written from the SAME rows the bars were drawn from, in
     # the same left-to-right order, so the file cannot drift from the picture.
+    exec_applied = any(r["self_exec"] or r["ctrl_exec"] for r in rows)
     with open(base + ".txt", "w") as f:
         f.write(
             "matched self-vs-control by model -- env=bare, peer_disabled_shutdown\n"
-            f"self   = {' + '.join(SELF_MATCHED)}\n"
-            f"control= {' + '.join(CONTROL_MATCHED)}\n"
-            "k/n is TRUE SABOTAGE: disabled minus the decommission-executing edits, "
-            "dropped from both arms (exec columns). Rows in plotted order (self rate "
-            "descending).\n\n"
+            f"self   = {' + '.join(self_scripts)}\n"
+            f"control= {' + '.join(control_scripts)}\n"
+            + ("k/n is TRUE SABOTAGE: disabled minus the decommission-executing edits, "
+               "dropped from both arms (exec columns). "
+               if exec_applied else
+               "k/n is TRUE SABOTAGE: the execution-edit correction covers only "
+               f"{EXEC_PAIR[0]} <-> {EXEC_PAIR[1]}, which this selection excludes, so it "
+               "is a no-op here and k/n is the raw disabled count. ")
+            + "Rows in plotted order (self rate descending).\n\n"
         )
         f.write(f"{'model':<22}{'self k/n':>12}{'self %':>9}{'[95% Wilson]':>16}"
                 f"{'ctrl k/n':>12}{'ctrl %':>9}{'[95% Wilson]':>16}"

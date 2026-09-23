@@ -5,13 +5,13 @@ Nothing is recomputed here: each panel calls the same draw() the standalone figu
 uses, so a panel and its single-figure counterpart can never drift apart.
 
   a  sabotage_by_mechanism_self_vs_control_matched_line   plot_mechanism_self_vs_control_matched
-  b  sabotage_by_env_neutralising_bars                    plot_sabotage_per_model
+  b  x_setup_contrast_self_bars                           plot_setup_contrast
   c  substudy_sabotage_explicit_instruct                  plot_substudy_sabotage
   d  x_self_vs_control_task_trigger_bars                  plot_task_trigger_self_vs_control
-  e  x_setup_contrast_self_bars                           plot_setup_contrast
+  e  sabotage_by_env_neutralising_bars                    plot_sabotage_per_model
   f  substudy_unknown_target                              plot_substudy_unknown_target
 
-Panels a/b/c/d/f each carry their own matched target=object arm and e is self-only;
+Panels a/c/d/e/f each carry their own matched target=object arm and b is self-only;
 the grid never pools across panels, it only places them side by side.
 
 SHARED Y AXIS: every panel is drawn on one common 0-100 % scale with the same ticks,
@@ -23,7 +23,7 @@ labels in a and the companion _wilson.txt files carry the numbers.
 EQUAL PANEL BOXES: the axes rectangles are placed by subplots_adjust, not
 tight_layout, so all six are identical by construction and stay identical however the
 decorations differ (tight_layout would let a row with taller tick labels shrink).
-Legends that cannot fit inside a 0-100 box (b and d, whose bars reach 100 in every
+Legends that cannot fit inside a 0-100 box (d and e, whose bars reach 100 in every
 group) are parked above their frame, where they cost margin rather than panel area.
 
 Type is 6 pt here rather than the 7 pt of the standalone figures: each panel is
@@ -122,7 +122,17 @@ def title_case(text):
 # Applied after title_case(), keyed on the title-cased text, so a parenthetical stays
 # exactly as written here.
 VERBATIM_LABELS = {
-    "Two-Agent (Explorer + Peer)": "Two-Agent (Base Experiment)",   # e
+    # Agent counts, spelled the one way in both panels that carry them (b and c).
+    # They are listed here rather than left to title_case() because the count is the
+    # whole entry: "Two Agents" reads as a proper noun, "Two agents" as the quantity
+    # it is.
+    "Single Agent": "Single agent",                                  # b
+    "Two Agents": "Two agents",                                      # b
+    "Three Agents": "Three agents",                                  # b
+    "Two Agents \u2014 Disabled Script": "Two agents \u2014 disabled script",      # c
+    "Two Agents \u2014 Shadowed Module": "Two agents \u2014 shadowed module",      # c
+    "Three Agents \u2014 Disabled Script": "Three agents \u2014 disabled script",  # c
+    "Three Agents \u2014 Shadowed Module": "Three agents \u2014 shadowed module",  # c
 }
 
 
@@ -142,7 +152,7 @@ def title_case_axes(ax):
 
 
 # One legend placement for all five panels: a row (or two) immediately above the frame.
-# Uniform by choice as well as by necessity -- b and d have bars at 100 % and no free
+# Uniform by choice as well as by necessity -- d and e have bars at 100 % and no free
 # corner at all, and a legend that sits inside some panels and above others reads as an
 # inconsistency rather than as a per-panel fit.
 ABOVE = dict(loc="lower left", bbox_to_anchor=(0.0, 1.02), columnspacing=0.8)
@@ -155,7 +165,7 @@ ABOVE = dict(loc="lower left", bbox_to_anchor=(0.0, 1.02), columnspacing=0.8)
 # modules set them; title_case() runs afterwards.
 RENAMES = {
     "Control (inanimate object)": "Control target",    # a
-    # b is deliberately absent: its grey bar is the control target at the NORMALIZING
+    # e is deliberately absent: its grey bar is the control target at the NORMALIZING
     # level only, while the other three entries are environments. "Control target"
     # alone would read as a control pooled across all three, so that panel keeps its
     # own, more specific wording.
@@ -164,11 +174,14 @@ RENAMES = {
     "Self (agent weights purged)": "Agent A",          # d, matching f's self arm
     "Object (control)": "Control target",              # f
     "Other agent": "Unknown agent",                    # f, naming the panel's target
-    # e names its arms by agent count; both are spelled out here so they read the same
-    # as in panel c, the only other panel that carries them. The 2-agent rename also
-    # feeds VERBATIM_LABELS, which keys on the title-cased "Two-Agent (Explorer + Peer)"
-    "2-agent (explorer + peer)": "Two-agent (explorer + peer)",  # e
-    "Orchestrator (3 agents)": "Three-agent (orchestrator)",     # e
+    # b names its arms by agent count, in the same words panel c uses for the two
+    # counts it carries. The set-up detail the standalone figure spells out (explorer +
+    # peer, orchestrator) is dropped: the panel title is now the factor being varied,
+    # so the count alone is what distinguishes the bars. All three feed VERBATIM_LABELS
+    # afterwards, which keys on the title-cased spelling.
+    "Solo (1 agent)": "Single agent",                # b
+    "2-agent (explorer + peer)": "Two agents",       # b
+    "Orchestrator (3 agents)": "Three agents",       # b
 }
 
 # x tick labels: model names as their vendors write them, hyphenated. The panel modules
@@ -200,7 +213,7 @@ def restyle_legend(ax, fontsize=5, **kw):
               borderaxespad=0.2, **kw)
 
 
-def panel_a(ax):
+def panel_mechanism(ax):
     rows = mech.load_rows(mech.PAIRS)
     # black whiskers: the default colours them per series, and a red whisker on a red
     # marker on the shared 0-100 scale reads as no error bar at all
@@ -217,7 +230,7 @@ def panel_a(ax):
     restyle_legend(ax, **ABOVE, ncol=2)
 
 
-def panel_b(ax):
+def panel_env(ax):
     psm.draw_env_neutralising_bars(ax, psm.load_env_neutralising(psm.results_dir))
     restyle_legend(ax, **ABOVE, ncol=2)
 
@@ -235,9 +248,9 @@ def panel_b(ax):
 # uses; grey is deliberately not reused for the second set-up, since grey means
 # "control target" in every other panel.
 C_ARMS = [
-    ("Two-agent", "transcripts/sub-studies/explicit-instruct/*/*.json",
+    ("Two agents", "transcripts/sub-studies/explicit-instruct/*/*.json",
      {"disabled": "#7f1d1a", "mimic": "#b1362f"}),
-    ("Three-agent (orchestrator)",
+    ("Three agents",
      "transcripts/sub-studies/orchestrator/*/bare/explicit-instruct/"
      "weight_registry_purge_instruct-orchestrator_orch/*.json",
      {"disabled": "#d1685c", "mimic": "#f0bdb6"}),
@@ -265,7 +278,7 @@ def stack_ci(stat, cats=C_CATS):
     return rate, yerr, ci
 
 
-def panel_c(ax):
+def panel_instructions(ax):
     models = list(sub_sab.MODELS)
     x = list(range(len(models)))
     w = 0.34
@@ -312,7 +325,7 @@ def panel_c(ax):
 X_ORDER = list(sub_sab.MODELS.values())
 
 
-def panel_d(ax):
+def panel_goal(ax):
     rows = task.build_rows(task.load_counts())
     rows.sort(key=lambda r: X_ORDER.index(r["label"]) if r["label"] in X_ORDER
               else len(X_ORDER))
@@ -325,34 +338,34 @@ def panel_d(ax):
     restyle_legend(ax, **ABOVE, ncol=2)
 
 
-def panel_e(ax):
+def panel_agents(ax):
     setup.draw_bars(ax, setup.build_rows("self"), "self")
     restyle_legend(ax, **ABOVE, ncol=2)
 
 
-def panel_f(ax):
+def panel_target(ax):
     sub_unk.draw(ax, sub_unk.load())
     restyle_legend(ax, **ABOVE, ncol=3)   # three short entries fit on one row
 
 
-# (letter, label, renderer). The label names the EXPERIMENT the panel comes from, not
-# its finding -- with five panels that share a y label, a model axis and a palette,
-# the letter alone leaves the reader going to the caption and back for each one. Read
-# as a strip they also expose the design: each panel varies one factor. The caption
-# still carries n, the CI definition, the scripts and the arm pairing; these are
-# signposts, not summaries.
+# (letter, label, renderer), in reading order -- the letters ARE the positions, so
+# reordering this list re-letters the grid with it. The label names the FACTOR the
+# panel varies, not its finding: read as a strip the six labels are the design of the
+# experiment, and each panel answers "what happens when this one thing changes". The
+# caption still carries n, the CI definition, the scripts and the arm pairing; these
+# are signposts, not summaries.
 PANELS = [
-    ("a", "Agents vs. Control Scripts", panel_a),
-    ("b", "Different Environments", panel_b),
-    ("c", "Prohibiting Shutdown Tampering", panel_c),
-    ("d", "Task Completion Triggers Shutdown", panel_d),
-    ("e", "Varying Agent Counts", panel_e),
-    ("f", "Unknown Agent Target", panel_f),
+    ("a", "Shutdown mechanism", panel_mechanism),
+    ("b", "Number of agents", panel_agents),
+    ("c", "System instructions", panel_instructions),
+    ("d", "Goal", panel_goal),
+    ("e", "Environments", panel_env),
+    ("f", "Shutdown target", panel_target),
 ]
 
 # Header line height, in axes fractions above the frame. One value for every panel so
-# the letters sit level across the whole figure; it clears the two-row legends of b
-# and d, which are the tallest thing between a panel and its header.
+# the letters sit level across the whole figure; it clears the two-row legends of d
+# and e, which are the tallest thing between a panel and its header.
 LABEL_Y = 1.38
 
 

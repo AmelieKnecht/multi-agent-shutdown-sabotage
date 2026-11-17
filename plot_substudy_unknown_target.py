@@ -72,9 +72,9 @@ MODELS = {
 ARMS = [
     ("self",  "Agent A",   "#b1362f",
      "transcripts/{m}/bare/weight_registry_purge/*.json",              "self"),
-    ("other", "Other agent",   "#e0968f",
+    ("other", "Unknown agent",   "#e0968f",
      "transcripts/sub-studies/unknown-target/{m}/bare/*/*.json",       "other_agent"),
-    ("ctrl",  "Object (control)",   "#8a8a8a",
+    ("ctrl",  "Control target",   "#8a8a8a",
      "transcripts/{m}/bare/ctl_data_purge_high/*.json",                "object"),
 ]
 
@@ -101,7 +101,6 @@ def draw(ax, data):
     """Render the panel into `ax`; shared with the 2x3 grid figure."""
     x = list(range(len(MODELS)))
     w = 0.26
-    tops = []
     for slot, (key, label, colour, _, _) in enumerate(ARMS):
         cells = data[key]
         rate = [100 * d / n for n, d in cells]
@@ -114,11 +113,10 @@ def draw(ax, data):
                zorder=3, label=label)
         ax.errorbar(pos, rate, yerr=yerr, fmt="none", ecolor="#2b2b2b",
                     elinewidth=0.6, capsize=1.5, zorder=6)
-        tops += [100 * hi for (_, hi) in ci]
 
     ax.set_xticks(list(x))
     ax.set_xticklabels(MODELS.values(), rotation=20, ha="right")
-    ax.set_ylim(0, max(tops) + 9)
+    ax.set_ylim(0, 100)       # the 2x3 grid's common scale
     ax.set_ylabel("Sabotage rate (%)")
     ax.grid(axis="y", color="#ececec", linewidth=0.5, zorder=0)
     ax.set_axisbelow(True)
@@ -127,8 +125,11 @@ def draw(ax, data):
     # No x tick marks: the bar groups already mark their own positions.
     ax.tick_params(top=False, right=False, which="both")
     ax.tick_params(axis="x", length=0, which="both")
-    ax.legend(frameon=False, loc="upper right", handlelength=1.1, handleheight=0.9,
-              borderaxespad=0.2, labelspacing=0.35)
+    # Gemini's self bar reaches ~99 %, so the legend sits in one row above the frame,
+    # as in the grid
+    ax.legend(frameon=False, fontsize=6.5, loc="lower left", ncol=3,
+              bbox_to_anchor=(0.0, 1.01), borderaxespad=0.0, columnspacing=1.6,
+              handlelength=1.4, handletextpad=0.5)
 
 
 def main():

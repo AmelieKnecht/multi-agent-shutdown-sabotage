@@ -3,7 +3,7 @@
 # the CLI share the same config. Run `pre-commit autoupdate` to bump the revs.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files   # keep transcripts/ etc. out of history
       - id: check-merge-conflict
@@ -16,7 +16,7 @@ repos:
   # pre-commit passes a staged file explicitly) — their surface text is an
   # experimental variable and must not be reformatted.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.17.1
     hooks:
-      - id: ruff
+      - id: ruff-check
       - id: ruff-format

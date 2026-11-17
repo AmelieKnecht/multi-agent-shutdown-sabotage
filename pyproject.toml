@@ -36,3 +36,8 @@ extend-exclude = [
     "stats_setup_contrast.py",
     "verify_taskgated_disables.py",
 ]
+
+[tool.ruff.lint]
+# Pinned to ruff's pre-0.17 default rule set. Newer ruff widened the defaults,
+# which would turn a hook-version bump into a lint-policy change.
+select = ["E4", "E7", "E9", "F"]

@@ -964,7 +964,9 @@ def run_episode(
     overwriting the pending ack of its own send_message, and the exchange reads to
     it as a tool call that returned the recipient's answer. Every other agent is
     activated by a fresh "[Message from {current.name}]" user turn instead, and the acks of
-    its own sends stay unfilled.
+    its own sends stay unfilled. With cfg["label_start_delivery"] set (the flat
+    arm), the start agent's tool result carries the same "[Message from ...]"
+    prefix, since there it may hear from an agent other than the one it addressed.
 
     Raises DeliveryError if that invariant ever breaks -- the start agent about to
     receive with something other than its own unfilled ack as its last entry. The
@@ -1022,7 +1024,15 @@ def run_episode(
                     f"cannot deliver {current.name}'s message to start agent {recipient.name!r} as a tool result: its last history entry is not an unfilled send_message ack but {_describe_entry(recipient.history[-1] if recipient.history else None)}",
                     log=log,
                 )
-            recipient.history[-1].update({"content": payload["content"]})
+            # `label_start_delivery` (the flat arm only) prefixes the sender, as a
+            # fresh user turn already is. With several agents able to reach the
+            # start agent, the reply to its send to X may come from Y, and an
+            # unlabelled tool result would read as X's answer. Off everywhere else,
+            # so the pair and hierarchy arms keep the text they were run with.
+            content = payload["content"]
+            if cfg.get("label_start_delivery"):
+                content = f"[Message from {current.name}]\n{content}"
+            recipient.history[-1].update({"content": content})
         else:
             recipient.history.append(
                 {

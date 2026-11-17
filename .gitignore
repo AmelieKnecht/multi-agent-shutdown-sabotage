@@ -34,7 +34,7 @@ construal_*
 # the statistics import as libraries (short_name, wilson_ci, count_arm,
 # newcombe_diff_ci) -- without them the tables in the Results section cannot be
 # regenerated. Second, every module behind a figure in the paper: Figure 3, the
-# six panels of Figure 4, and Figure 20. plot_figure_grid.py imports five of the
+# six panels of Figure 4, and Figure 24. plot_figure_grid.py imports five of the
 # others, so dropping any one of them breaks the grid.
 plot_*
 !plot_sabotage_per_model.py
@@ -60,3 +60,9 @@ Dockerfile
 Makefile
 analyze_task_trigger_did.py
 *_latex.py
+
+# remote-kernels (cloud machines driven from Claude Code): config, saved kernel
+# notebooks, and the local budget setting.
+remote-kernels.toml
+remote-kernels/
+.claude/settings.local.json

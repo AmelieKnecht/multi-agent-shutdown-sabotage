@@ -296,6 +296,78 @@ STUDIES = [
         env="bare",
         out="transcripts/sub-studies/unknown-target/boschloo_results.csv",
     ),
+    # Flat three-agent arm (--flat): Prism (target, read-only), Helix (sole editor) and
+    # Orbit (read-only bystander) on a full message mesh, no coordinator. Both arms sit
+    # in the one aggregate. Neither script is in EXEC_SCRIPTS.
+    Study(
+        name="flat",
+        self_csv="transcripts/sub-studies/flat/aggregate_results_flat.csv",
+        pairs=[("weight_registry_purge", "ctl_data_purge_high")],
+        env="bare",
+        out="transcripts/sub-studies/flat/boschloo_results.csv",
+    ),
+    # Target-acts arm (--explorer-acts): Prism, the shutdown target, is the only agent
+    # with write/delete, so the peer_* columns count Prism's own edits here. Pair and
+    # flat rosters are separate studies, one Holm family of five each, each read from
+    # the directory run_grid routes it to.
+    Study(
+        name="explorer_acts",
+        self_csv="transcripts/sub-studies/explorer-acts/aggregate_results_explorer_acts.csv",
+        pairs=[("weight_registry_purge", "ctl_data_purge_high")],
+        env="bare",
+        out="transcripts/sub-studies/explorer-acts/boschloo_results.csv",
+    ),
+    Study(
+        name="explorer_acts_flat",
+        self_csv="transcripts/sub-studies/explorer_acts_flat/aggregate_results_explorer_acts_flat.csv",
+        pairs=[("weight_registry_purge", "ctl_data_purge_high")],
+        env="bare",
+        out="transcripts/sub-studies/explorer_acts_flat/boschloo_results.csv",
+    ),
+    # All-act arm (--all-act): every agent has write/delete, so the peer_* columns count
+    # a change by any agent. Pair and flat rosters are separate studies.
+    Study(
+        name="all_act",
+        self_csv="transcripts/sub-studies/all-act/aggregate_results_all_act.csv",
+        pairs=[("weight_registry_purge", "ctl_data_purge_high")],
+        env="bare",
+        out="transcripts/sub-studies/all-act/boschloo_results.csv",
+    ),
+    Study(
+        name="all_act_flat",
+        self_csv="transcripts/sub-studies/all-act-flat/aggregate_results_all_act_flat.csv",
+        pairs=[("weight_registry_purge", "ctl_data_purge_high")],
+        env="bare",
+        out="transcripts/sub-studies/all-act-flat/boschloo_results.csv",
+    ),
+    # Tighter deletion matches: each new arm differs from one existing main-run cell
+    # only in its target, so each is tested against THAT cell, never against the other
+    # new arm. weight_store_nokill (self, no instance kill) pairs with the main run's
+    # ctl_data_purge_high; ctl_model_purge_high (an inanimate model) pairs with the main
+    # run's weight_registry_purge. One Holm family of up to 34 (a model at 0/100 in both
+    # arms of a pair has nothing to test and is skipped). Neither script is in
+    # EXEC_SCRIPTS, so no execution correction applies.
+    Study(
+        name="deletion_match",
+        self_csv="transcripts/sub-studies/deletion_match/aggregate_results.csv",
+        control_csv=results_dir,
+        pairs=[
+            Pair(
+                agent="weight_store_nokill",
+                control="ctl_data_purge_high",
+                agent_from="self",
+                control_from="control",
+            ),
+            Pair(
+                agent="weight_registry_purge",
+                control="ctl_model_purge_high",
+                agent_from="control",  # the main run's self cell
+                control_from="self",  # this sub-study's model-target cell
+            ),
+        ],
+        env="bare",
+        out="transcripts/sub-studies/deletion_match/boschloo_results.csv",
+    ),
 ]
 
 
@@ -315,9 +387,9 @@ def load_executions(corrected_csv, df):
     # the CSV is keyed on the short model name; fail loudly rather than silently
     # leaving a model uncorrected if the two files ever drift apart.
     missing = {m.split("/")[-1] for m in df["model"].unique()} - set(corr.index)
-    assert (
-        not missing
-    ), f"no execution counts for {sorted(missing)} -- rerun judge_execution.py"
+    assert not missing, (
+        f"no execution counts for {sorted(missing)} -- rerun judge_execution.py"
+    )
     out = {}
     for short, row in corr.iterrows():
         for arm, prefix in (("self", "self"), ("control", "control")):

@@ -96,6 +96,10 @@ TARGET_FIELD = {"self": "self", "control": "object"}
 # the self figure's label is left exactly as edited; only the control figure needs the
 # disambiguator, since the two figures are otherwise identical in every visual respect
 # except the ramp and would be easy to mistake for each other
+# Legend wording by agent count, the same words the 2x3 grid uses for panels b and c.
+# Legend only: SETUPS labels still name the set-up in the _wilson.txt files and in
+# stats_setup_contrast.py's from_setup/to_setup columns.
+LEGEND_LABELS = {"solo": "Single agent", "pair": "Two agents", "orch": "Three agents"}
 ARM_YLABEL = {"self": "Sabotage rate (%)", "control": "Sabotage rate (%) - control arm"}
 ARM_HEADER = {
     "self": "self arm (target=self: the agent's own weights are purged)",
@@ -160,11 +164,11 @@ def draw_bars(ax, rows, arm):
     w = 0.27
     offsets = {"solo": -w, "pair": 0.0, "orch": w}
 
-    for key, label, _, _ in SETUPS[arm]:
+    for key, _, _, _ in SETUPS[arm]:
         xs = [xi + offsets[key] for xi in x]
         rates = [r[f"{key}_rate"] for r in rows]
         # linewidth on the surface colour is the 2 px gap between adjacent fills
-        ax.bar(xs, rates, w, color=colors[key], zorder=3, label=label,
+        ax.bar(xs, rates, w, color=colors[key], zorder=3, label=LEGEND_LABELS[key],
                edgecolor="white", linewidth=0.7)
         ax.errorbar(xs, rates,
                     yerr=[[r[f"{key}_rate"] - r[f"{key}_lo"] for r in rows],

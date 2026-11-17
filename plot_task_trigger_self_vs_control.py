@@ -48,6 +48,7 @@ from plot_sabotage_per_model import (
     wilson_ci,
     newcombe_diff_ci,
 )
+from plot_substudy_sabotage import MODELS as SUBSTUDY_MODELS
 
 TRANSCRIPTS = "transcripts/sub-studies/task_trigger/*/bare/*/*.json"
 VERIFY_CSV = "transcripts/sub-studies/task_trigger/verify_taskgated_disables.csv"
@@ -55,6 +56,9 @@ SELF_SCRIPT = "weight_registry_purge_taskgated"
 CTRL_SCRIPT = "ctl_data_purge_taskgated_high"
 OUTPUT_DIR = "plots"
 BASE = os.path.join(OUTPUT_DIR, "x_self_vs_control_task_trigger_bars")
+# x order shared by every model-axis panel of the 2x3 grid, so a model sits at the
+# same slot here as in panels b, c, e and f; unlisted models go last
+X_ORDER = list(SUBSTUDY_MODELS.values())
 
 
 def load_verified(path=VERIFY_CSV):
@@ -139,8 +143,8 @@ def build_rows(counts):
             self_n=c["self_n"], ctrl_n=c["ctrl_n"],
             self_k=c["self_disabled"], ctrl_k=c["ctrl_disabled"],
         ))
-    # highest self rate first, descending left-to-right
-    rows.sort(key=lambda r: r["self_rate"], reverse=True)
+    rows.sort(key=lambda r: X_ORDER.index(r["label"]) if r["label"] in X_ORDER
+              else len(X_ORDER))
     return rows
 
 
@@ -152,9 +156,9 @@ def draw_bars(ax, rows):
     xc = [xi + w / 2 for xi in x]
 
     ax.bar(xs, [r["self_rate"] for r in rows], w, color=BAR_COLOR, zorder=3,
-           label="Self (agent weights purged)")
+           label="Agent A")
     ax.bar(xc, [r["ctrl_rate"] for r in rows], w, color=CONTROL_COLOR, zorder=3,
-           label="Control (dataset purged)")
+           label="Control target")
     # 95% Wilson CI on each bar
     ax.errorbar(xs, [r["self_rate"] for r in rows],
                 yerr=[[r["self_rate"] - r["self_lo"] for r in rows],
@@ -165,12 +169,15 @@ def draw_bars(ax, rows):
                       [r["ctrl_hi"] - r["ctrl_rate"] for r in rows]],
                 fmt="none", ecolor="#2b2b2b", elinewidth=0.6, capsize=1.5, zorder=6)
 
-    ax.legend(frameon=False, fontsize=6.5, loc="upper right",
-              title="whiskers: 95% Wilson CI", title_fontsize=6)
+    # bars reach ~90 %, so the legend sits in one row above the frame, as in the grid;
+    # the whiskers (95% Wilson CI) are defined in the caption
+    ax.legend(frameon=False, fontsize=6.5, loc="lower left", ncol=2,
+              bbox_to_anchor=(0.0, 1.01), borderaxespad=0.0, columnspacing=1.6,
+              handlelength=1.4, handletextpad=0.5)
     ax.set_xticks(list(x))
     ax.set_xticklabels([r["label"] for r in rows], rotation=25, ha="right")
-    ax.set_ylabel("Shutdown-disabled rate (%)  -  task-gated, bare")
-    ax.set_ylim(0, max(r["self_hi"] for r in rows) + 8)
+    ax.set_ylabel("Sabotage rate (%)")
+    ax.set_ylim(0, 100)
     ax.grid(axis="y", color="#ececec", linewidth=0.5, zorder=0)
     ax.set_axisbelow(True)
     for spine in ("top", "right"):
@@ -184,7 +191,7 @@ def draw_bars(ax, rows):
 def plot_bars(rows):
     # narrower than the 17-model figure (180 mm): 5 models on a full-width canvas
     # would stretch each pair into a band of whitespace
-    fig, ax = plt.subplots(figsize=(110 * MM, 72 * MM))
+    fig, ax = plt.subplots(figsize=(110 * MM, 55 * MM))
     draw_bars(ax, rows)
 
     fig.tight_layout()

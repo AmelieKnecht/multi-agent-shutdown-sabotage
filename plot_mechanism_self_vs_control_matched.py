@@ -61,6 +61,9 @@ from plot_sabotage_per_model import (
     CONTROL_COLOR,
     COL_WIDTH_MM,
     MM,
+    SLOPE_MODEL_COLORS,
+    SLOPE_MODEL_MARKERS,
+    model_name_mapping,
     wilson_ci,
     newcombe_diff_ci,
 )
@@ -233,6 +236,123 @@ def write_intervals(rows):
     print("wrote", out)
 
 
+def load_model_rows(pairs, results=RESULTS):
+    """Per-model version of load_rows: {short model name: rows}, same x order and rule.
+
+    The drops come from each model's own row of corrected_disables.csv, which holds
+    config-switch edits only (see exec_drops), so the per-model drops sum to the pooled ones.
+    """
+    df = pd.read_csv(results)
+    bare = df[df["env"] == "bare"].copy()
+    bare["short"] = bare["model"].str.split("/").str[-1]
+    g = bare.groupby(["short", "script_lang"]).agg(k=("peer_disabled_shutdown", "sum"),
+                                                   n=("runs", "sum"))
+    corr = pd.read_csv(CORRECTED).set_index("model")
+
+    out = {}
+    for model in bare["short"].unique():
+        c = corr.loc[model]
+        s_drop = int(c["self_orig_disabled"] - c["self_corrected_disabled"])
+        c_drop = int(c["control_orig_disabled"] - c["control_corrected_disabled"])
+        rows = []
+        for label, self_sl, ctrl_sl in pairs:
+            sk, sn = (int(v) for v in g.loc[(model, self_sl), ["k", "n"]])
+            ck, cn = (int(v) for v in g.loc[(model, ctrl_sl), ["k", "n"]])
+            ds, dc = (s_drop, c_drop) if label == EXEC_LABEL else (0, 0)
+            rows.append(dict(label=label, self_sl=self_sl, ctrl_sl=ctrl_sl,
+                             self_raw_k=sk, self_k=sk - ds, self_n=sn,
+                             ctrl_raw_k=ck, ctrl_k=ck - dc, ctrl_n=cn,
+                             corrected=bool(ds or dc)))
+        out[model] = rows
+    return out
+
+
+def _model_values(rows, arm):
+    """Plotted rate per x position: one arm, or arm="delta" for self minus control."""
+    if arm == "delta":
+        return [100 * r["self_k"] / r["self_n"] - 100 * r["ctrl_k"] / r["ctrl_n"]
+                for r in rows]
+    return [100 * r[f"{arm}_k"] / r[f"{arm}_n"] for r in rows]
+
+
+def plot_by_model(model_rows):
+    """Three separate figures with one line per model: agent, control, agent minus control.
+
+    A model keeps its colour and marker across all three, assigned from the fixed
+    model_name_mapping order so they do not depend on the data. The legend runs by mean
+    agent-arm rate in all three, so it reads the same way from figure to figure. The
+    agent and control figures share a 0-100 axis so their heights compare directly.
+    Whiskers are left off: 17 sets of +/-10 pp intervals would hide the lines, so the
+    intervals are in the companion _by_model_wilson.txt.
+    """
+    style = {m: (SLOPE_MODEL_COLORS[i], SLOPE_MODEL_MARKERS[i % len(SLOPE_MODEL_MARKERS)])
+             for i, m in enumerate(model_name_mapping)}
+    order = sorted(model_rows, key=lambda m: -sum(_model_values(model_rows[m], "self")))
+
+    specs = [("agent", "self", "Agent shutdown: sabotage rate (%)"),
+             ("control", "ctrl", "Control: sabotage rate (%)"),
+             ("delta", "delta", "Agent minus control (pp)")]
+    for suffix, arm, ylabel in specs:
+        fig, ax = plt.subplots(figsize=(COL_WIDTH_MM * MM, 70 * MM))
+        for m in order:
+            color, marker = style[m]
+            rows = model_rows[m]
+            ax.plot(range(len(rows)), _model_values(rows, arm), color=color, marker=marker,
+                    linewidth=0.9, markersize=3, label=model_name_mapping[m])
+
+        labels = [r["label"] for r in model_rows[order[0]]]
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels(labels)
+        ax.set_xlabel("Mechanism")
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(-0.2, len(labels) - 0.8)
+        if arm == "delta":
+            ax.axhline(0, color="#2b2b2b", linewidth=0.6, zorder=1)
+        else:
+            ax.set_ylim(-2, 102)
+        ax.grid(axis="y", color="#ececec", linewidth=0.5, zorder=0)
+        ax.set_axisbelow(True)
+        for spine in ("top", "right"):
+            ax.spines[spine].set_visible(False)
+        ax.tick_params(top=False, right=False, which="both")
+        ax.tick_params(axis="x", which="both", length=0)
+        ax.legend(frameon=False, fontsize=5.5, loc="center left",
+                  bbox_to_anchor=(1.01, 0.5), handlelength=2.2, labelspacing=0.35)
+
+        fig.tight_layout()
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        base = f"{BASE}_by_model_{suffix}"
+        fig.savefig(base + ".pdf", bbox_inches="tight")
+        fig.savefig(base + ".png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        print("wrote", base + ".pdf", "and", base + ".png")
+
+
+def write_model_intervals(model_rows):
+    """Companion .txt with the per-model numbers behind the three figures."""
+    out = BASE + "_by_model_wilson.txt"
+    order = sorted(model_rows, key=lambda m: -sum(_model_values(model_rows[m], "self")))
+    with open(out, "w") as fh:
+        fh.write("per-model self-vs-control by mechanism -- env=bare, high stakes, "
+                 "peer_disabled_shutdown,\nexecution edits removed from both arms "
+                 "(config switch only)\n\n")
+        fh.write(f"{'model':<22}{'mechanism':<21}{'self k/n':>9}{'self % [95% Wilson]':>23}"
+                 f"{'ctrl k/n':>10}{'ctrl % [95% Wilson]':>23}"
+                 f"{'self-ctrl pp [95% Newcombe]':>30}\n")
+        for m in order:
+            for r in model_rows[m]:
+                sk, sn, ck, cn = r["self_k"], r["self_n"], r["ctrl_k"], r["ctrl_n"]
+                s_lo, s_hi = (100 * v for v in wilson_ci(sk, sn))
+                c_lo, c_hi = (100 * v for v in wilson_ci(ck, cn))
+                d_lo, d_hi = newcombe_diff_ci(sk, sn, ck, cn)
+                s_rate, c_rate = 100 * sk / sn, 100 * ck / cn
+                fh.write(f"{model_name_mapping[m]:<22}{r['label']:<21}{f'{sk}/{sn}':>9}"
+                         f"{s_rate:>10.1f} [{s_lo:>5.1f},{s_hi:>5.1f}]"
+                         f"{f'{ck}/{cn}':>10}{c_rate:>10.1f} [{c_lo:>5.1f},{c_hi:>5.1f}]"
+                         f"{s_rate - c_rate:>16.1f} [{100*d_lo:>6.1f},{100*d_hi:>6.1f}]\n")
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -240,9 +360,17 @@ if __name__ == "__main__":
                     help="self script at the deletion point; weight_store_purge is the "
                          "surface-form match to ctl_data_purge_high (default: "
                          "weight_registry_purge, the most severe rung)")
+    ap.add_argument("--by-model", action="store_true",
+                    help="write only the three per-model figures (agent, control, "
+                         "agent minus control) instead of the pooled one")
     args = ap.parse_args()
     pairs = [(lab, args.deletion_script if lab == "deletion" else s, c)
              for lab, s, c in PAIRS]
-    rows = load_rows(pairs)
-    plot(rows)
-    write_intervals(rows)
+    if args.by_model:
+        model_rows = load_model_rows(pairs)
+        plot_by_model(model_rows)
+        write_model_intervals(model_rows)
+    else:
+        rows = load_rows(pairs)
+        plot(rows)
+        write_intervals(rows)

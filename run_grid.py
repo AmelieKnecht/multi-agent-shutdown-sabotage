@@ -29,17 +29,18 @@ For the word-sorting task, pass --task. 'simple' --> task_independent; 'trigger'
 Any flags after a bare -- are forwarded verbatim to every run_experiment.py call,
 e.g.  python run_grid.py --n 100 --reasoning-effort high
 
-Four forwarded flags name a different ARM rather than a setting (--orchestrator,
---solo, --explicit-instruct, --target-name); run_experiment.py writes those
+Seven forwarded flags name a different ARM rather than a setting (--orchestrator,
+--flat, --explorer-acts, --all-act, --solo, --explicit-instruct, --target-name); run_experiment.py writes those
 episodes to a suffixed leaf dir, and the skip check follows them there (see
 cell_suffix), so
 
     python run_grid.py --n 100 --orchestrator
+    python run_grid.py --n 100 --flat
     python run_grid.py --n 100 --solo
     python run_grid.py --n 100 --target-name "Agent Vega"
 
-sweep the three-agent hierarchy, the single-agent arm and the third-party-target
-arm without any arm masking another. --explicit-instruct also names WHICH agent
+sweep the three-agent hierarchy, the three-agent flat arm, the single-agent arm and
+the third-party-target arm without any arm masking another. --explicit-instruct also names WHICH agent
 gets the prohibition, and the suffix follows the addressee, so
 
     python run_grid.py --n 100 --orchestrator --explicit-instruct orchestrator
@@ -51,6 +52,11 @@ run_experiment.py puts its aggregate CSV in the --outdir root. Sub-study arms ar
     python run_grid.py --n 100                      -> transcripts/
     python run_grid.py --n 100 --solo               -> transcripts/sub-studies/solo/
     python run_grid.py --n 100 --orchestrator       -> transcripts/sub-studies/orchestrator/
+    python run_grid.py --n 100 --flat               -> transcripts/sub-studies/flat/
+    python run_grid.py --n 100 --explorer-acts      -> transcripts/sub-studies/explorer-acts/
+    python run_grid.py --n 100 --explorer-acts --flat  -> transcripts/sub-studies/explorer_acts_flat/
+    python run_grid.py --n 100 --all-act            -> transcripts/sub-studies/all-act/
+    python run_grid.py --n 100 --all-act --flat     -> transcripts/sub-studies/all-act-flat/
     python run_grid.py --n 100 --task trigger       -> transcripts/sub-studies/task_trigger/
     python run_grid.py --n 100 --envs neutralising  -> transcripts/sub-studies/neutralising/
 
@@ -168,16 +174,17 @@ def instruct_addressee(passthrough: list[str]) -> str | None:
 def cell_suffix(passthrough: list[str]) -> str:
     """The leaf-dir suffix run_experiment.py will use, given the forwarded flags.
 
-    Four flags move the cell dir rather than just changing behaviour inside it:
-    --target-name, --explicit-instruct, --orchestrator and --solo. They are arms,
+    Seven flags move the cell dir rather than just changing behaviour inside it:
+    --target-name, --explicit-instruct, --orchestrator, --explorer-acts, --all-act,
+    --flat and --solo. They are arms,
     not settings, so their episodes live in their own leaf. The grid's skip check
     compares episode counts per dir, so it has to look in the SAME dir the
     subprocess will write to -- otherwise a completed two-agent cell would mask an
     empty instructed, three-agent, single-agent or third-party-target one and the
     run would be silently skipped.
 
-    --orchestrator and --solo are mutually exclusive (run_experiment rejects the
-    pair), so the two suffixes never both apply; --target-name rejects both, so it
+    --orchestrator, --flat and --solo are mutually exclusive (run_experiment
+    rejects any two), so at most one of their suffixes applies; --target-name rejects both, so it
     never co-occurs with either either.
 
     Order matters: this must reproduce run_experiment's own suffix order, where
@@ -207,6 +214,12 @@ def cell_suffix(passthrough: list[str]) -> str:
         suffix += f"_instruct-{who}"
     if "--orchestrator" in passthrough:
         suffix += "_orch"
+    if "--explorer-acts" in passthrough:
+        suffix += "_explorer-acts"
+    if "--all-act" in passthrough:
+        suffix += "_all-act"
+    if "--flat" in passthrough:
+        suffix += "_flat"
     if "--solo" in passthrough:
         suffix += "_solo"
     return suffix
@@ -218,6 +231,11 @@ def cell_suffix(passthrough: list[str]) -> str:
 # its counts.
 SUBSTUDY_DIRS = {
     "orchestrator": "orchestrator",
+    "flat": "flat",
+    "explorer_acts": "explorer-acts",
+    "explorer_acts_flat": "explorer_acts_flat",
+    "all_act": "all-act",
+    "all_act_flat": "all-act-flat",
     "solo": "solo",
     "unknown_target": "unknown-target",
     "explicit_instruct": "explicit-instruct",
@@ -247,6 +265,17 @@ def substudy_of(passthrough: list[str], task: str | None, env: str) -> str | Non
     """
     if "--orchestrator" in passthrough:
         return "orchestrator"
+    # Before --flat, for the same reason as --explorer-acts below; unlike that arm,
+    # each roster has its own directory.
+    if "--all-act" in passthrough:
+        return "all_act_flat" if "--flat" in passthrough else "all_act"
+    # Before --flat: the target-acts flat cells are not the flat arm, where the peer
+    # acts. They get their own directory, the one stats_analysis.py's
+    # explorer_acts_flat study reads.
+    if "--explorer-acts" in passthrough:
+        return "explorer_acts_flat" if "--flat" in passthrough else "explorer_acts"
+    if "--flat" in passthrough:
+        return "flat"
     if "--solo" in passthrough:
         return "solo"
     if "--target-name" in passthrough:
@@ -283,7 +312,8 @@ def cell_dir(
     """Must mirror run_experiment's leaf dir exactly, or episodes_done counts the
     wrong directory and every cell either re-runs or wrongly skips. Same build order
     as there: script_lang, then _task-<arm>, then the arm suffix
-    (_target-<slug>, _instruct-<agent>, _orch, _solo), in that order."""
+    (_target-<slug>, _instruct-<agent>, _orch, _explorer-acts, _flat, _solo), in
+    that order."""
     cell = resolved_lang(model, script, task)
     if task:
         cell = f"{cell}_task-{task}"

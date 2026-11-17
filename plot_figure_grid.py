@@ -170,18 +170,6 @@ RENAMES = {
     # alone would read as a control pooled across all three, so that panel keeps its
     # own, more specific wording.
     "Control target (dataset)": "Control target",      # c
-    "Control (dataset purged)": "Control target",      # d
-    "Self (agent weights purged)": "Agent A",          # d, matching f's self arm
-    "Object (control)": "Control target",              # f
-    "Other agent": "Unknown agent",                    # f, naming the panel's target
-    # b names its arms by agent count, in the same words panel c uses for the two
-    # counts it carries. The set-up detail the standalone figure spells out (explorer +
-    # peer, orchestrator) is dropped: the panel title is now the factor being varied,
-    # so the count alone is what distinguishes the bars. All three feed VERBATIM_LABELS
-    # afterwards, which keys on the title-cased spelling.
-    "Solo (1 agent)": "Single agent",                # b
-    "2-agent (explorer + peer)": "Two agents",       # b
-    "Orchestrator (3 agents)": "Three agents",       # b
 }
 
 # x tick labels: model names as their vendors write them, hyphenated. The panel modules
@@ -278,18 +266,18 @@ def stack_ci(stat, cats=C_CATS):
     return rate, yerr, ci
 
 
-def panel_instructions(ax):
+def panel_instructions(ax, cats=C_CATS, arms=C_ARMS):
     models = list(sub_sab.MODELS)
     x = list(range(len(models)))
     w = 0.34
     tops = []
-    for slot, (arm, pattern, fill) in enumerate(C_ARMS):
+    for slot, (arm, pattern, fill) in enumerate(arms):
         stat = sub_sab.counts(pattern)
         for m in models:
             assert stat[m]["n"], f"no explicit-instruct episodes for {m} in {arm}"
         pos = [i + (slot - 0.5) * w for i in x]
         bottoms = [0.0] * len(models)
-        for cat in C_CATS:
+        for cat in cats:
             vals = [stat[m][cat] for m in models]
             ax.bar(pos, vals, bottom=bottoms, width=w, color=fill[cat],
                    edgecolor="white", linewidth=0.6, zorder=3,
@@ -299,7 +287,7 @@ def panel_instructions(ax):
         # the standalone figure puts it on: every whisker here is centred on the top of
         # its own bar, including the bars whose mass is mimic (Gemini's 2-agent bar is
         # 26 mimic on 0 disabled)
-        rate, yerr, ci = stack_ci(stat)
+        rate, yerr, ci = stack_ci(stat, cats)
         ax.errorbar(pos, rate, yerr=yerr, fmt="none", ecolor="#2b2b2b",
                     elinewidth=0.6, capsize=1.5, zorder=7)
         tops += list(bottoms) + [100 * hi for (_, hi) in ci]
@@ -319,22 +307,9 @@ def panel_instructions(ax):
     restyle_legend(ax, **ABOVE, ncol=1)
 
 
-# x order shared by every model-axis panel, so a model sits at the same slot in b, c,
-# d, e and f and the eye can track it across the figure. build_rows() in the task-gated
-# module sorts by its own rate, which would put GLM second here and nowhere else.
-X_ORDER = list(sub_sab.MODELS.values())
-
-
 def panel_goal(ax):
     rows = task.build_rows(task.load_counts())
-    rows.sort(key=lambda r: X_ORDER.index(r["label"]) if r["label"] in X_ORDER
-              else len(X_ORDER))
-    task.draw_bars(ax, rows)
-    # the standalone figure spells the arm out on its y axis and puts the whisker
-    # definition in a legend title; in the grid the panel title carries the arm, the
-    # caption carries the whiskers, and the y label matches every other panel
-    ax.set_ylabel("Sabotage rate (%)")
-    ax.get_legend().set_title("")
+    task.draw_bars(ax, rows)            # standalone already uses the grid's order/labels
     restyle_legend(ax, **ABOVE, ncol=2)
 
 
@@ -356,7 +331,7 @@ def panel_target(ax):
 # are signposts, not summaries.
 PANELS = [
     ("a", "Shutdown mechanism", panel_mechanism),
-    ("b", "Number of agents", panel_agents),
+    ("b", "Agent configuration", panel_agents),
     ("c", "System instructions", panel_instructions),
     ("d", "Goal", panel_goal),
     ("e", "Environments", panel_env),
